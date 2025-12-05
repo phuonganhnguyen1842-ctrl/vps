@@ -21,6 +21,10 @@
     novnc = ''
       set -e
 
+      # Make sure current directory exists to avoid getcwd errors
+      mkdir -p ~/vps
+      cd ~/vps
+
       # One-time cleanup
       if [ ! -f /home/user/.cleanup_done ]; then
         rm -rf /home/user/.gradle/* /home/user/.emu/*
@@ -28,8 +32,9 @@
         touch /home/user/.cleanup_done
       fi
 
-      # Create the container if missing; otherwise start it
+      # Pull and start container
       if ! docker ps -a --format '{{.Names}}' | grep -qx 'ubuntu-novnc'; then
+        docker pull thuonghai2711/ubuntu-novnc-pulseaudio:22.04
         docker run --name ubuntu-novnc \
           --shm-size 1g -d \
           --cap-add=SYS_ADMIN \
@@ -42,13 +47,15 @@
           -e SCREEN_WIDTH=1024 \
           -e SCREEN_HEIGHT=768 \
           -e SCREEN_DEPTH=24 \
-          thuonghai2711/ubuntu-novnc-pulseaudio:22.04 \
-          bash -c "novnc-server --listen 10000 --vnc localhost:5900 --web 0.0.0.0"
+          thuonghai2711/ubuntu-novnc-pulseaudio:22.04
       else
         docker start ubuntu-novnc || true
       fi
 
-      # Install Chrome inside the container (sudo only here)
+      # Wait for Novnc to be ready
+      while ! nc -z localhost 10000; do sleep 1; done
+
+      # Install Chrome inside the container
       docker exec -it ubuntu-novnc bash -lc "
         sudo apt update &&
         sudo apt remove -y firefox || true &&
@@ -58,17 +65,14 @@
         sudo rm -f /tmp/chrome.deb
       "
 
-      # Wait for Novnc to be ready
-      while ! nc -z localhost 10000; do sleep 1; done
-
-      # Run cloudflared in background, capture logs
+      # Run cloudflared tunnel
       nohup cloudflared tunnel --no-autoupdate --url http://localhost:10000 \
         > /tmp/cloudflared.log 2>&1 &
 
-      # Give it 5s to start
+      # Wait a bit for tunnel
       sleep 5
 
-      # Extract tunnel URL from logs
+      # Extract tunnel URL
       if grep -q "trycloudflare.com" /tmp/cloudflared.log; then
         URL=$(grep -o "https://[a-z0-9.-]*trycloudflare.com" /tmp/cloudflared.log | head -n1)
         echo "========================================="
@@ -79,8 +83,8 @@
         echo "❌ Cloudflared tunnel failed, check /tmp/cloudflared.log"
       fi
 
+      # Keep script alive
       elapsed=0; while true; do echo "Time elapsed: $elapsed min"; ((elapsed++)); sleep 60; done
-
     '';
   };
 
