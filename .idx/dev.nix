@@ -29,8 +29,8 @@
       echo "[2/6] Starting Docker container..."
       if ! docker ps -a --format '{{.Names}}' | grep -qx 'ubuntu-novnc'; then
         docker run --name ubuntu-novnc \
-          --shm-size 120g \
-          --memory 160g \
+          --shm-size 50g \
+          --memory 8g \
           --cpus 1 \
           --cap-add=SYS_ADMIN \
           -d \
