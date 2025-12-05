@@ -19,9 +19,9 @@
     novnc = ''
       set -e
 
-      echo "🧹 Cleanup once"
+      echo "🧹 Cleanup once..."
       if [ ! -f /home/user/.cleanup_done ]; then
-        rm -rf /home/user/.gradle/* /home.user/.emu/*
+        rm -rf /home/user/.gradle/* /home/user/.emu/*
         find /home/user -mindepth 1 -maxdepth 1 ! -name 'idx-ubuntu22-gui' ! -name '.*' -exec rm -rf {} +
         touch /home/user/.cleanup_done
       fi
@@ -60,45 +60,76 @@
         sudo rm -f /tmp/chrome.deb
       "
 
-
-      echo "🖥️ Adding custom Win10 menu interface..."
-      docker exec -i ubuntu-novnc bash -lc "cat > /usr/share/novnc/index.html << 'HTML'
+      echo "🖥️ Adding Win10 menu interface..."
+      docker exec -i ubuntu-novnc bash -lc "cat > /usr/share/novnc/index.html << 'EOF'
 <!doctype html>
 <html lang='en'>
 <head>
-<meta charset='utf-8' />
+<meta charset='utf-8'>
 <title>Cloud Desktop</title>
 <style>
-  body{font-family:Segoe UI,Arial;background:#0f1724;color:white;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
-  .box{background:#111827;padding:30px;border-radius:14px;width:400px;text-align:center;box-shadow:0 0 40px #0008}
-  h1{margin:0 0 10px;font-size:24px}
-  p{color:#cbd5e1;margin-bottom:20px}
-  button{padding:12px 18px;border:0;border-radius:8px;background:#2563eb;color:white;font-size:15px;font-weight:600;cursor:pointer;width:100%;margin-top:10px}
-  .loading{display:none;margin-top:20px;color:#94a3b8}
+body{
+  font-family:Segoe UI,Arial;
+  background:#0f1724;
+  color:white;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+  margin:0;
+}
+.box{
+  background:#111827;
+  padding:30px;
+  border-radius:14px;
+  width:400px;
+  text-align:center;
+  box-shadow:0 0 40px #0008;
+}
+h1{font-size:24px;margin-bottom:10px;}
+p{color:#cbd5e1;margin-bottom:20px;}
+button{
+  padding:12px 18px;
+  border:0;
+  border-radius:8px;
+  background:#2563eb;
+  color:white;
+  font-size:15px;
+  font-weight:600;
+  cursor:pointer;
+  width:100%;
+  margin-top:10px;
+}
+.loading{
+  display:none;
+  margin-top:20px;
+  color:#94a3b8;
+}
 </style>
 </head>
 <body>
-  <div class="box">
-    <h1>Chọn giao diện</h1>
-    <p>Windows 10 / Ubuntu Desktop</p>
-    <button onclick="go()">Vào Windows 10</button>
-    <button onclick="go()">Vào Ubuntu</button>
-    <div class="loading" id="load">Đang tải giao diện...</div>
-  </div>
+<div class='box'>
+  <h1>Cloud Desktop</h1>
+  <p>Chọn giao diện để bắt đầu</p>
+  <button onclick="go()">Vào Windows 10</button>
+  <button onclick="go()">Vào Ubuntu</button>
+  <div class='loading' id='load'>Đang tải giao diện...</div>
+</div>
 
 <script>
 function go(){
   document.getElementById('load').style.display='block';
-  setTimeout(()=>{ window.location='/vnc.html' }, 2500);
+  setTimeout(function(){
+    window.location='/vnc.html';
+  }, 2500);
 }
 </script>
 </body>
 </html>
-HTML
+EOF"
       "
 
       docker exec ubuntu-novnc chmod 644 /usr/share/novnc/index.html || true
-
 
       echo "☁️ Starting cloudflared..."
       nohup cloudflared tunnel --no-autoupdate --url http://localhost:8080 \
@@ -112,7 +143,7 @@ HTML
         echo "========================================="
         echo "🌍 Cloud Desktop Ready!"
         echo "$URL"
-        echo "🔑 Password: 12345678"
+        echo "🔑 Password (VNC): 12345678"
         echo "========================================="
       else
         echo "❌ Tunnel failed — check /tmp/cloudflared.log"
