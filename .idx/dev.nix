@@ -12,6 +12,7 @@
     pkgs.docker
     pkgs.systemd
     pkgs.unzip
+    pkgs.netcat
   ];
 
   services.docker.enable = true;
@@ -32,7 +33,7 @@
         docker run --name ubuntu-novnc \
           --shm-size 1g -d \
           --cap-add=SYS_ADMIN \
-          --network host \
+          -p 10000:10000 \
           -e VNC_PASSWD=12345678 \
           -e PORT=10000 \
           -e AUDIO_PORT=1699 \
@@ -41,7 +42,8 @@
           -e SCREEN_WIDTH=1024 \
           -e SCREEN_HEIGHT=768 \
           -e SCREEN_DEPTH=24 \
-          thuonghai2711/ubuntu-novnc-pulseaudio:22.04
+          thuonghai2711/ubuntu-novnc-pulseaudio:22.04 \
+          bash -c "novnc-server --listen 10000 --vnc localhost:5900 --web 0.0.0.0"
       else
         docker start ubuntu-novnc || true
       fi
@@ -56,12 +58,15 @@
         sudo rm -f /tmp/chrome.deb
       "
 
+      # Wait for Novnc to be ready
+      while ! nc -z localhost 10000; do sleep 1; done
+
       # Run cloudflared in background, capture logs
       nohup cloudflared tunnel --no-autoupdate --url http://localhost:10000 \
         > /tmp/cloudflared.log 2>&1 &
 
-      # Give it 10s to start
-      sleep 10
+      # Give it 5s to start
+      sleep 5
 
       # Extract tunnel URL from logs
       if grep -q "trycloudflare.com" /tmp/cloudflared.log; then
