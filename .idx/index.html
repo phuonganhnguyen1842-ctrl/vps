@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cloud Desktop</title>
+<style>
+body{
+  font-family:Segoe UI,Arial;
+  background:#0f1724;
+  color:white;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+  margin:0;
+}
+.box{
+  background:#111827;
+  padding:30px;
+  border-radius:14px;
+  width:400px;
+  text-align:center;
+  box-shadow:0 0 40px #0008;
+}
+button{
+  padding:12px;
+  border:0;
+  border-radius:8px;
+  background:#2563eb;
+  color:white;
+  font-size:15px;
+  width:100%;
+  margin-top:10px;
+  cursor:pointer;
+}
+.loading{
+  display:none;
+  margin-top:20px;
+  color:#94a3b8;
+}
+</style>
+</head>
+<body>
+  <div class="box">
+    <h1>Cloud Desktop</h1>
+    <p>Chọn giao diện để bắt đầu</p>
+    <button onclick="go()">Vào Windows 10</button>
+    <button onclick="go()">Vào Ubuntu</button>
+    <div class="loading" id="load">Đang tải giao diện...</div>
+  </div>
+
+<script>
+function go(){
+  document.getElementById('load').style.display='block';
+  setTimeout(function(){
+    window.location='/vnc.html';
+  }, 2500);
+}
+</script>
+</body>
+</html>
