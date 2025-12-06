@@ -21,7 +21,7 @@
     novnc = ''
       set -e
 
-      # Make sure current directory exists to avoid getcwd errors
+      # Make sure current directory exists
       mkdir -p ~/vps
       cd ~/vps
 
@@ -52,10 +52,10 @@
         docker start ubuntu-novnc || true
       fi
 
-      # Wait for Novnc to be ready
+      # Wait for Novnc WebSocket port
       while ! nc -z localhost 10000; do sleep 1; done
 
-      # Install Chrome inside the container
+      # Install Chrome
       docker exec -it ubuntu-novnc bash -lc "
         sudo apt update &&
         sudo apt remove -y firefox || true &&
@@ -65,11 +65,14 @@
         sudo rm -f /tmp/chrome.deb
       "
 
-      # Run cloudflared tunnel
+      # Run Cloudflared tunnel
       nohup cloudflared tunnel --no-autoupdate --url http://localhost:10000 \
         > /tmp/cloudflared.log 2>&1 &
 
-      # Wait and extract tunnel URL reliably
+      # Wait a bit longer to ensure WebSocket is fully ready
+      sleep 10
+
+      # Extract Cloudflared URL reliably
       URL=""
       for i in {1..15}; do
         URL=$(grep -o "https://[a-z0-9.-]*trycloudflare.com" /tmp/cloudflared.log | head -n1)
