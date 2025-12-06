@@ -60,7 +60,7 @@
         sudo apt remove -y firefox || true &&
         sudo apt install -y wget \
           ffmpeg \
-          libvpx6 \
+          libvpx7 \
           libavcodec-extra \
           gstreamer1.0-libav \
           gstreamer1.0-plugins-good \
