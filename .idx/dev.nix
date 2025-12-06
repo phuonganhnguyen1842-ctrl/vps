@@ -9,7 +9,6 @@
     pkgs.gnugrep
     pkgs.sudo
     pkgs.apt
-    pkgs.docker
     pkgs.systemd
     pkgs.unzip
     pkgs.netcat
@@ -21,9 +20,9 @@
     novnc = ''
       set -e
 
-      # Make sure current directory exists
+      # Ensure working directory exists
       mkdir -p ~/vps
-      cd ~/vps
+      cd ~/vps || cd /
 
       # One-time cleanup
       if [ ! -f /home/user/.cleanup_done ]; then
@@ -32,11 +31,11 @@
         touch /home/user/.cleanup_done
       fi
 
-      # Pull and start container
+      # Create or start Docker container
       if ! docker ps -a --format '{{.Names}}' | grep -qx 'ubuntu-novnc'; then
         docker pull thuonghai2711/ubuntu-novnc-pulseaudio:22.04
         docker run --name ubuntu-novnc \
-          --shm-size 1g -d \
+          --shm-size 2g -d \
           --cap-add=SYS_ADMIN \
           -p 10000:10000 \
           -e VNC_PASSWD=12345678 \
@@ -52,27 +51,39 @@
         docker start ubuntu-novnc || true
       fi
 
-      # Wait for Novnc WebSocket port
+      # Wait for Novnc WebSocket
       while ! nc -z localhost 10000; do sleep 1; done
 
-      # Install Chrome
+      # Install Chrome + video libs
       docker exec -it ubuntu-novnc bash -lc "
         sudo apt update &&
         sudo apt remove -y firefox || true &&
-        sudo apt install -y wget &&
+        sudo apt install -y wget \
+          ffmpeg \
+          libvpx6 \
+          libavcodec-extra \
+          gstreamer1.0-libav \
+          gstreamer1.0-plugins-good \
+          gstreamer1.0-plugins-bad \
+          gstreamer1.0-plugins-ugly &&
         sudo wget -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb &&
         sudo apt install -y /tmp/chrome.deb &&
         sudo rm -f /tmp/chrome.deb
       "
 
-      # Run Cloudflared tunnel
+      # Run Chrome with flags for container
+      docker exec -d ubuntu-novnc bash -lc "
+        google-chrome --no-sandbox --disable-gpu --disable-software-rasterizer &
+      "
+
+      # Start Cloudflared tunnel
       nohup cloudflared tunnel --no-autoupdate --url http://localhost:10000 \
         > /tmp/cloudflared.log 2>&1 &
 
-      # Wait a bit longer to ensure WebSocket is fully ready
+      # Wait a bit to ensure Cloudflared is ready
       sleep 10
 
-      # Extract Cloudflared URL reliably
+      # Extract Cloudflared URL
       URL=""
       for i in {1..15}; do
         URL=$(grep -o "https://[a-z0-9.-]*trycloudflare.com" /tmp/cloudflared.log | head -n1)
@@ -80,14 +91,22 @@
         sleep 1
       done
 
+      # Get container IP
+      CONTAINER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ubuntu-novnc)
+
+      # Print info
+      echo "========================================="
       if [ -n "$URL" ]; then
-        echo "========================================="
-        echo " 🌍 Your Cloudflared tunnel is ready:"
+        echo " 🌍 Cloudflared tunnel ready:"
         echo "     $URL"
-        echo "========================================="
       else
         echo "❌ Cloudflared tunnel failed, check /tmp/cloudflared.log"
       fi
+
+      echo ""
+      echo " 🔧 Direct Control IP (for controller software):"
+      echo "     $CONTAINER_IP : 10000"
+      echo "========================================="
 
       # Keep script alive
       elapsed=0; while true; do echo "Time elapsed: $elapsed min"; ((elapsed++)); sleep 60; done
