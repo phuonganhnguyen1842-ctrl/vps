@@ -31,22 +31,15 @@
         touch /home/user/.cleanup_done
       fi
 
-      # Create or start Docker container
+      # Pull and start Docker container
       if ! docker ps -a --format '{{.Names}}' | grep -qx 'ubuntu-novnc'; then
         docker pull thuonghai2711/ubuntu-novnc-pulseaudio:22.04
         docker run --name ubuntu-novnc \
-          --shm-size 2g -d \
-          --cap-add=SYS_ADMIN \
           -p 10000:10000 \
-          -e VNC_PASSWD=12345678 \
-          -e PORT=10000 \
-          -e AUDIO_PORT=1699 \
-          -e WEBSOCKIFY_PORT=6900 \
-          -e VNC_PORT=5900 \
-          -e SCREEN_WIDTH=1024 \
-          -e SCREEN_HEIGHT=768 \
-          -e SCREEN_DEPTH=24 \
-          thuonghai2711/ubuntu-novnc-pulseaudio:22.04
+          -p 5900:5900 \
+          --shm-size 2g \
+          --cap-add=SYS_ADMIN \
+          -d thuonghai2711/ubuntu-novnc-pulseaudio:22.04
       else
         docker start ubuntu-novnc || true
       fi
@@ -54,33 +47,29 @@
       # Wait for Novnc WebSocket
       while ! nc -z localhost 10000; do sleep 1; done
 
-      # Install Chrome + video libs
+      # Install Chrome + XFCE + codecs
       docker exec -it ubuntu-novnc bash -lc "
         sudo apt update &&
         sudo apt remove -y firefox || true &&
-        sudo apt install -y wget \
-          ffmpeg \
-          libvpx7 \
-          libavcodec-extra \
-          gstreamer1.0-libav \
-          gstreamer1.0-plugins-good \
-          gstreamer1.0-plugins-bad \
-          gstreamer1.0-plugins-ugly &&
+        sudo apt install -y wget xfce4 xfce4-terminal x11-apps x11-utils \
+          fonts-liberation \
+          ffmpeg libvpx7 libavcodec-extra \
+          gstreamer1.0-libav gstreamer1.0-plugins-good \
+          gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly &&
         sudo wget -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb &&
         sudo apt install -y /tmp/chrome.deb &&
         sudo rm -f /tmp/chrome.deb
       "
 
-      # Run Chrome with flags for container
+      # Run Chrome in container with proper flags
       docker exec -d ubuntu-novnc bash -lc "
-        google-chrome --no-sandbox --disable-gpu --disable-software-rasterizer &
+        google-chrome --no-sandbox --disable-gpu --disable-software-rasterizer --disable-dev-shm-usage &
       "
 
       # Start Cloudflared tunnel
       nohup cloudflared tunnel --no-autoupdate --url http://localhost:10000 \
         > /tmp/cloudflared.log 2>&1 &
 
-      # Wait a bit to ensure Cloudflared is ready
       sleep 10
 
       # Extract Cloudflared URL
