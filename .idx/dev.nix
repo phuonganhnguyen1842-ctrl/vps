@@ -69,12 +69,15 @@
       nohup cloudflared tunnel --no-autoupdate --url http://localhost:10000 \
         > /tmp/cloudflared.log 2>&1 &
 
-      # Wait a bit for tunnel
-      sleep 5
-
-      # Extract tunnel URL
-      if grep -q "trycloudflare.com" /tmp/cloudflared.log; then
+      # Wait and extract tunnel URL reliably
+      URL=""
+      for i in {1..15}; do
         URL=$(grep -o "https://[a-z0-9.-]*trycloudflare.com" /tmp/cloudflared.log | head -n1)
+        if [ -n "$URL" ]; then break; fi
+        sleep 1
+      done
+
+      if [ -n "$URL" ]; then
         echo "========================================="
         echo " 🌍 Your Cloudflared tunnel is ready:"
         echo "     $URL"
